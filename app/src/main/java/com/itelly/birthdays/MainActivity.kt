@@ -3,6 +3,7 @@ package com.itelly.birthdays
 import android.Manifest
 import android.content.ContentValues
 import android.content.pm.PackageManager
+import android.database.Cursor
 import android.icu.util.Calendar
 import android.icu.util.ChineseCalendar
 import android.net.Uri
@@ -354,45 +355,68 @@ fun AddBirthdayDialog(onDismiss: () -> Unit, onConfirm: (BirthdayRecord) -> Unit
 }
 
 fun syncAllToCalendar(context: android.content.Context, list: List<BirthdayRecord>) {
+    // 1. 获取有效的 Calendar ID
+    val calendarId = getDefaultCalendarId(context)
+    if (calendarId == -1L) {
+        Toast.makeText(context, "未找到系统日历，请确保已登录账户", Toast.LENGTH_LONG).show()
+        return
+    }
+
     var successCount = 0
     list.forEach { record ->
-        if (syncSingleToCalendar(context, record)) {
+        if (syncSingleToCalendar(context, record, calendarId)) {
             successCount++
         }
     }
     Toast.makeText(context, "同步完成: 成功 $successCount/${list.size}", Toast.LENGTH_SHORT).show()
 }
 
-fun syncSingleToCalendar(context: android.content.Context, record: BirthdayRecord): Boolean {
+// 动态查询系统默认的可写日历 ID
+fun getDefaultCalendarId(context: android.content.Context): Long {
+    val projection = arrayOf(CalendarContract.Calendars._ID, CalendarContract.Calendars.CALENDAR_DISPLAY_NAME)
+    val selection = "${CalendarContract.Calendars.VISIBLE} = 1 AND ${CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL} >= ${CalendarContract.Calendars.CAL_ACCESS_CONTRIBUTOR}"
+    
+    val cursor: Cursor? = context.contentResolver.query(
+        CalendarContract.Calendars.CONTENT_URI,
+        projection,
+        selection,
+        null,
+        null
+    )
+    
+    cursor?.use {
+        if (it.moveToFirst()) {
+            return it.getLong(0) // 返回第一个找到的有效日历 ID
+        }
+    }
+    return -1L
+}
+
+fun syncSingleToCalendar(context: android.content.Context, record: BirthdayRecord, calendarId: Long): Boolean {
     try {
         val now = Calendar.getInstance()
-        val nextOccurrence = Calendar.getInstance()
+        val currentYear = now.get(Calendar.YEAR)
+        val eventTime = Calendar.getInstance()
         
         if (record.isLunar) {
             val cc = ChineseCalendar()
             cc.set(ChineseCalendar.MONTH, record.month - 1)
             cc.set(ChineseCalendar.DAY_OF_MONTH, record.day)
-            val currentYear = now.get(Calendar.YEAR)
             cc.set(ChineseCalendar.EXTENDED_YEAR, currentYear + 2637)
-            if (cc.before(now)) {
-                cc.set(ChineseCalendar.EXTENDED_YEAR, currentYear + 2638)
-            }
-            nextOccurrence.timeInMillis = cc.timeInMillis
+            eventTime.timeInMillis = cc.timeInMillis
         } else {
-            nextOccurrence.set(Calendar.MONTH, record.month - 1)
-            nextOccurrence.set(Calendar.DAY_OF_MONTH, record.day)
-            nextOccurrence.set(Calendar.YEAR, now.get(Calendar.YEAR))
-            if (nextOccurrence.before(now)) {
-                nextOccurrence.add(Calendar.YEAR, 1)
-            }
+            eventTime.set(Calendar.YEAR, currentYear)
+            eventTime.set(Calendar.MONTH, record.month - 1)
+            eventTime.set(Calendar.DAY_OF_MONTH, record.day)
         }
 
-        nextOccurrence.set(Calendar.HOUR_OF_DAY, 9)
-        nextOccurrence.set(Calendar.MINUTE, 0)
+        eventTime.set(Calendar.HOUR_OF_DAY, 9)
+        eventTime.set(Calendar.MINUTE, 0)
+        eventTime.set(Calendar.SECOND, 0)
 
         val values = ContentValues().apply {
-            put(CalendarContract.Events.DTSTART, nextOccurrence.timeInMillis)
-            put(CalendarContract.Events.DTEND, nextOccurrence.timeInMillis + 60 * 60 * 1000)
+            put(CalendarContract.Events.DTSTART, eventTime.timeInMillis)
+            put(CalendarContract.Events.DTEND, eventTime.timeInMillis + 60 * 60 * 1000)
             put(CalendarContract.Events.TITLE, "${record.name}的生日")
             val desc = StringBuilder()
             val dateStr = "${numberToChinese(record.month)}月${numberToChinese(record.day)}日"
@@ -401,7 +425,7 @@ fun syncSingleToCalendar(context: android.content.Context, record: BirthdayRecor
                 desc.append("\n备注: ${record.note}")
             }
             put(CalendarContract.Events.DESCRIPTION, desc.toString())
-            put(CalendarContract.Events.CALENDAR_ID, 1) 
+            put(CalendarContract.Events.CALENDAR_ID, calendarId) 
             put(CalendarContract.Events.EVENT_TIMEZONE, TimeZone.getDefault().id)
             put(CalendarContract.Events.RRULE, "FREQ=YEARLY")
         }
