@@ -177,6 +177,7 @@ fun BirthdayItem(record: BirthdayRecord, onDelete: () -> Unit) {
             modifier = Modifier.height(IntrinsicSize.Min),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Left indicator bar
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
@@ -184,50 +185,56 @@ fun BirthdayItem(record: BirthdayRecord, onDelete: () -> Unit) {
                     .background(typeColor)
             )
 
-            Row(
+            // Content
+            Column(
                 modifier = Modifier
+                    .weight(1f)
                     .padding(16.dp)
-                    .fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = if (record.isLunar) Icons.Default.NightsStay else Icons.Default.WbSunny,
-                            contentDescription = null,
-                            tint = typeColor,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = record.name, style = MaterialTheme.typography.titleLarge)
-                    }
-                    Spacer(modifier = Modifier.height(6.dp))
-                    
-                    val displayDate = "${numberToChinese(record.month)}月${numberToChinese(record.day)}日"
-
-                    Text(
-                        text = "${if (record.isLunar) "农历" else "公历"}: $displayDate",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = typeColor
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = if (record.isLunar) Icons.Default.NightsStay else Icons.Default.WbSunny,
+                        contentDescription = null,
+                        tint = typeColor,
+                        modifier = Modifier.size(20.dp)
                     )
-                    if (record.note.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "备注: ${record.note}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                        )
-                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = record.name, style = MaterialTheme.typography.titleLarge)
                 }
+                Spacer(modifier = Modifier.height(6.dp))
                 
-                if (showDelete) {
-                    IconButton(onClick = onDelete) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "删除",
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                    }
+                val displayDate = "${numberToChinese(record.month)}月${numberToChinese(record.day)}日"
+
+                Text(
+                    text = "${if (record.isLunar) "农历" else "公历"}: $displayDate",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = typeColor
+                )
+                if (record.note.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "备注: ${record.note}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                }
+            }
+
+            // Right side delete button
+            if (showDelete) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .width(72.dp)
+                        .background(MaterialTheme.colorScheme.error)
+                        .clickable { onDelete() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "删除",
+                        tint = Color.White
+                    )
                 }
             }
         }
